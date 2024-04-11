@@ -1,19 +1,12 @@
-package client
+package dataCoord
 
 import (
 	"context"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
 	"math/rand"
-	"strconv"
 	"time"
 )
-
-func failOnError(err error, msg string) {
-	if err != nil {
-		log.Panicf("%s: %s", msg, err)
-	}
-}
 
 func randomString(l int) string {
 	bytes := make([]byte, l)
@@ -32,7 +25,7 @@ type RabbitMQClient struct {
 	queueName string
 	rspQName  string
 	ch        chan []byte
-	rspCh     chan string
+	rspCh     chan []byte
 }
 
 func NewRabbitMQClient(conn *amqp.Connection, queueName string, rspQName string) *RabbitMQClient {
@@ -40,8 +33,8 @@ func NewRabbitMQClient(conn *amqp.Connection, queueName string, rspQName string)
 		conn:      conn,
 		queueName: queueName,
 		rspQName:  rspQName,
-		ch:        make(chan []byte, 500),
-		rspCh:     make(chan string, 500),
+		ch:        make(chan []byte),
+		rspCh:     make(chan []byte),
 	}
 }
 
@@ -138,26 +131,11 @@ func (r *RabbitMQClient) rpcCall(msg []byte) error {
 
 	for d := range msgs {
 		if corrId == d.CorrelationId {
-			r.rspCh <- string(d.Body)
+			r.rspCh <- d.Body
 			failOnError(err, "Failed to convert body to integer")
 			break
 		}
 	}
 
 	return nil
-}
-
-func (r *RabbitMQClient) RequestTSO(idStr string) (uint64, error) {
-	err := r.rpcCall([]byte(idStr))
-	if err != nil {
-		return 0, err
-	}
-
-	TsBin := <-r.rspCh
-	TsUint, err := strconv.ParseUint(TsBin, 10, 64)
-	if err != nil {
-		return 0, err
-	}
-
-	return TsUint, nil
 }

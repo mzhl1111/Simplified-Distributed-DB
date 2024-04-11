@@ -2,6 +2,10 @@ package rootCord
 
 import "log"
 
+const (
+	tsAllocateQueue = "ts_allocate"
+)
+
 type BaseMsg struct {
 	timeStamp int64
 	forceFail string
